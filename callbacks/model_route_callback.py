@@ -46,7 +46,8 @@ class ModelRouteByReasoningStrength(
             "rerank",
         ],
     ):
-        if data["model"] in self.target_model:
+        print("model: " + data.get("model", "unknown"))
+        if data["model"] not in self.target_model:
             return data
 
         reasoning_effort: Literal[None, "low", "medium", "high"] = data.get(
