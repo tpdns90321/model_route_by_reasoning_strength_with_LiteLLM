@@ -7,12 +7,81 @@ from litellm.types.utils import ModelResponseStream
 from typing import Any, AsyncGenerator, Optional, Literal
 
 
-# This file includes the custom callbacks for LiteLLM Proxy
-# Once defined, these can be passed in proxy_config.yaml
-class ModelRouteByReasoningStrength(
-    CustomLogger
-):  # https://docs.litellm.ai/docs/observability/custom_callback#callback-class
-    # Class variables or attributes
+def delete_unsupported_parameters_recursively(input_schema: dict):
+    if input_schema["type"] == "object":
+        for props in input_schema["properties"]:
+            delete_unsupported_parameters_recursively(input_schema["properties"][props])
+    elif input_schema["type"] == "array":
+        delete_unsupported_parameters_recursively(input_schema["items"])
+        if "minItems" in input_schema:
+            input_schema["description"] += (
+                "(minimum number of items is " + str(input_schema["minItems"]) + ")"
+            )
+            del input_schema["minItems"]
+    # finding format parameter
+    if "format" in input_schema:
+        input_schema["description"] += "(format is " + input_schema["format"] + ")"
+        del input_schema["format"]
+
+    if "minLength" in input_schema:
+        if "description" not in input_schema:
+            input_schema["description"] = ""
+        input_schema["description"] += (
+            "(minimum length is " + str(input_schema["minLength"]) + ")"
+        )
+        del input_schema["minLength"]
+
+
+"""
+A LiteLLM proxy callback that routes requests to different model variants based on reasoning strength.
+
+This callback intercepts incoming requests and routes them to appropriate models based on the required
+reasoning effort, enabling intelligent model selection for different task complexities.
+
+The routing decisions are based on:
+- Explicit `reasoning_effort` parameter ('low', 'medium', 'high')
+- Implicit `thinking.budget_tokens` in the request payload
+  - < 8,000 tokens: low reasoning
+  - < 16,000 tokens: medium reasoning
+  - >= 16,000 tokens: high reasoning
+
+Usage:
+1. Add to proxy_config.yaml:
+```yaml
+callbacks:
+  - callbacks.model_route_callback.proxy_handler_instance
+```
+
+2. Make requests with reasoning parameters:
+```python
+# Using explicit reasoning effort
+client.chat.completions.create(
+    model="claude-sonnet-4-20250514",
+    messages=[{"role": "user", "content": "..."}],
+    reasoning_effort="high"
+)
+
+# Using thinking budget tokens
+client.chat.completions.create(
+    model="claude-sonnet-4-20250514",
+    messages=[{"role": "user", "content": "..."}],
+    thinking={
+        "budget_tokens": 20000,
+        "type": "enabled"
+    }
+)
+```
+
+Environment Variables:
+- LITELLM_PROXY_REASONING_STRENGTH_ROUTE_MODEL: Target model to trigger routing (default: claude-sonnet-4-20250514)
+- LITELLM_PROXY_NONE_REASONING_MODEL: Model for no reasoning tasks (default: none-reasoning)
+- LITELLM_PROXY_LOW_REASONING_MODEL: Model for low reasoning tasks (default: low-reasoning)
+- LITELLM_PROXY_MEDIUM_REASONING_MODEL: Model for medium reasoning tasks (default: medium-reasoning)
+- LITELLM_PROXY_HIGH_REASONING_MODEL: Model for high reasoning tasks (default: high-reasoning)
+"""
+
+
+class ModelRouteByReasoningStrength(CustomLogger):
     def __init__(self):
         self.target_model = os.getenv(
             "LITELLM_PROXY_REASONING_STRENGTH_ROUTE_MODEL", "claude-sonnet-4-20250514"
@@ -46,9 +115,14 @@ class ModelRouteByReasoningStrength(
             "rerank",
         ],
     ):
-        print("model: " + data.get("model", "unknown"))
         if data["model"] not in self.target_model:
             return data
+
+        # Iterate data structure without message parameters
+        for data_key in list(data.keys()):
+            if data_key == "tools":
+                for tool in data["tools"]:
+                    delete_unsupported_parameters_recursively(tool["input_schema"])
 
         reasoning_effort: Literal[None, "low", "medium", "high"] = data.get(
             "reasoning_effort"
