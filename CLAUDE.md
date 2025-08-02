@@ -2,11 +2,12 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Project Overview
+@README.md
+
 ## Development Commands
 
-- Install dependencies: `pip install .`
-- Run tests: `pytest` or `pytest path/to/test_file.py::test_name` (if tests are added)
-- Lint: `flake8` or `ruff .`
+- Install dependencies: `uv sync`
 
 ## Architecture
 

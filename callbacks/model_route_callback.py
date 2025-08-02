@@ -83,6 +83,9 @@ Environment Variables:
 
 class ModelRouteByReasoningStrength(CustomLogger):
     def __init__(self):
+        self.disable_parameter = (
+            os.getenv("LITELLM_PROXY_DISABLE_PARAMETER", "false").lower() == "true"
+        )
         self.target_model = os.getenv(
             "LITELLM_PROXY_REASONING_STRENGTH_ROUTE_MODEL", "claude-sonnet-4-20250514"
         )  # Default model for reasoning strength routing(claude code)
@@ -118,11 +121,12 @@ class ModelRouteByReasoningStrength(CustomLogger):
         if data["model"] not in self.target_model:
             return data
 
-        # Iterate data structure without message parameters
-        for data_key in list(data.keys()):
-            if data_key == "tools":
-                for tool in data["tools"]:
-                    delete_unsupported_parameters_recursively(tool["input_schema"])
+        if self.disable_parameter:
+            # Iterate data structure without message parameters
+            for data_key in list(data.keys()):
+                if data_key == "tools":
+                    for tool in data["tools"]:
+                        delete_unsupported_parameters_recursively(tool["input_schema"])
 
         reasoning_effort: Literal[None, "low", "medium", "high"] = data.get(
             "reasoning_effort"

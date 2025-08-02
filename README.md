@@ -44,6 +44,6 @@ uv run litellm --config test_config.yaml
 ANTHROPIC_BASE_URL="http://127.0.0.1:4000" ANTHROPIC_AUTH_TOKEN="0000" npx @anthropic-ai/claude-code
 ```
 
-## Knwon Issues
+## Known Issues
 - Cerebras supports `tools` and `tool_choice` only with `qwen3-235B-A22B-Instruct-2507`, now. ~~Fastest Supports Please!~~
 - Some Function calling failed, because unstable function calling support in other models.
