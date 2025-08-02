@@ -1,0 +1,9 @@
+[project]
+name = "model-route-by-reasoning-effort"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "litellm[proxy]>=1.74.12",
+]

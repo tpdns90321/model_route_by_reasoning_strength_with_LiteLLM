@@ -1,0 +1,27 @@
+model_list:
+  - model_name: claude-sonnet-4-20250514
+    litellm_params:
+      model: claude-sonnet-4-20250514
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+  - model_name: none-reasoning
+    litellm_params:
+      model: gpt-4.1
+      api_key: "os.environ/OPENAI_API_KEY"
+  - model_name: low-reasoning
+    litellm_params:
+      model: o4-mini
+      api_key: "os.environ/OPENAI_API_KEY"
+      reasoning_effort: medium
+  - model_name: medium-reasoning
+    litellm_params:
+      model: o4-mini
+      api_key: "os.environ/OPENAI_API_KEY"
+      reasoning_effort: high
+  - model_name: high-reasoning
+    litellm_params:
+      model: o3
+      api_key: "os.environ/OPENAI_API_KEY"
+      reasoning_effort: high
+
+litellm_settings:
+  callbacks: callbacks.model_route_callback.proxy_handler_instance
