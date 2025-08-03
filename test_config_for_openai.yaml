@@ -1,0 +1,50 @@
+model_list:
+  # Target model that triggers the routing logic
+  - model_name: claude-sonnet-4-20250514
+    litellm_params:
+      model: claude-sonnet-4-20250514
+      api_key: "os.environ/ANTHROPIC_API_KEY"
+
+  # Models for different reasoning strengths
+  # Route to simple/fast models when no reasoning is needed
+  - model_name: none-reasoning
+    litellm_params:
+      model: openai/gpt-4.1
+      api_key: "os.environ/CERABRAS_API_KEY"
+      reasoning_effort: low
+      parallel_tool_calls: false
+
+  # Route to models with basic reasoning capabilities
+  - model_name: low-reasoning
+    litellm_params:
+      model: openai/o4-mini
+      api_key: "os.environ/CERABRAS_API_KEY"
+      reasoning_effort: medium
+
+  # Route to models with enhanced reasoning for complex tasks
+  - model_name: medium-reasoning
+    litellm_params:
+      model: openai/o4-mini
+      api_key: "os.environ/CERABRAS_API_KEY"
+      reasoning_effort: high
+
+  # Route to models with maximum reasoning for highly complex tasks
+  - model_name: high-reasoning
+    litellm_params:
+      model: openai/o3
+      api_key: "os.environ/CERABRAS_API_KEY"
+      reasoning_effort: high
+
+# LiteLLM proxy settings
+litellm_settings:
+  # Register the reasoning-based routing callback
+  callbacks: callbacks.model_route_callback.proxy_handler_instance
+  
+  # Drop unsupported parameters from requests
+  drop_params: true
+  
+  # Optional: Add model aliases to simplify client requests
+  # model_group_alias: 
+  #   "thinking-low": "low-reasoning"
+  #   "thinking-medium": "medium-reasoning"
+  #   "thinking-high": "high-reasoning"

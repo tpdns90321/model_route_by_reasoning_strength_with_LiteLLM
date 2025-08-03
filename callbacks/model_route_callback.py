@@ -1,4 +1,5 @@
 import os
+import logging
 
 from litellm.integrations.custom_logger import CustomLogger
 from litellm.caching.dual_cache import DualCache
@@ -30,6 +31,35 @@ def delete_unsupported_parameters_recursively(input_schema: dict):
             "(minimum length is " + str(input_schema["minLength"]) + ")"
         )
         del input_schema["minLength"]
+
+
+def convertMessagesContentToString(messages: list[dict]) -> list[dict]:
+    """
+    Converts the content of messages to string if it is not already a string.
+    This is useful for ensuring that the content is in a consistent format.
+    """
+    for message in messages:
+        if type(message["content"]) is str:
+            continue
+        if type(message["content"]) is list:
+            message["content"] = flat_content_to_string(message["content"])
+        else:
+            message["content"] = ""
+
+    return messages
+
+
+def flat_content_to_string(contents: list[dict]) -> str:
+    """
+    Converts a list of content dictionaries to a flat string.
+    This is useful for ensuring that the content is in a consistent format.
+    """
+    return "".join(
+        map(
+            lambda x: x if type(x) is str else x.get("text", "") if "type" in x else "",
+            contents,
+        )
+    )
 
 
 """
@@ -83,9 +113,13 @@ Environment Variables:
 
 class ModelRouteByReasoningStrength(CustomLogger):
     def __init__(self):
-        self.disable_parameter = (
-            os.getenv("LITELLM_PROXY_DISABLE_PARAMETER", "false").lower() == "true"
+        self.is_cerebras_provider = (
+            os.getenv("LITELLM_PROXY_CEREBRAS_PROVIDER", "false").lower() == "true"
         )
+        self.is_openrouter_provider = (
+            os.getenv("LITELLM_PROXY_OPENROUTER_PROVIDER", "false").lower() == "true"
+        )
+
         self.target_model = os.getenv(
             "LITELLM_PROXY_REASONING_STRENGTH_ROUTE_MODEL", "claude-sonnet-4-20250514"
         )  # Default model for reasoning strength routing(claude code)
@@ -99,6 +133,9 @@ class ModelRouteByReasoningStrength(CustomLogger):
         self.high_model = os.getenv(
             "LITELLM_PROXY_HIGH_REASONING_MODEL", "high-reasoning"
         )
+
+        # Set up logging
+        self.logger = logging.getLogger(__name__)
 
     #### CALL HOOKS - proxy only ####
 
@@ -121,12 +158,24 @@ class ModelRouteByReasoningStrength(CustomLogger):
         if data["model"] not in self.target_model:
             return data
 
-        if self.disable_parameter:
+        # Log the routing decision
+        self.logger.info(
+            f"Routing request from {data['model']} based on reasoning strength"
+        )
+
+        if self.is_cerebras_provider:
             # Iterate data structure without message parameters
             for data_key in list(data.keys()):
                 if data_key == "tools":
                     for tool in data["tools"]:
                         delete_unsupported_parameters_recursively(tool["input_schema"])
+
+                if not self.is_openrouter_provider:
+                    data["stream"] = False
+                    data["messages"] = convertMessagesContentToString(
+                        data.get("messages", [])
+                    )
+                    data["system"] = flat_content_to_string(data.get("system", []))
 
         reasoning_effort: Literal[None, "low", "medium", "high"] = data.get(
             "reasoning_effort"
@@ -147,14 +196,29 @@ class ModelRouteByReasoningStrength(CustomLogger):
                 else:
                     reasoning_strength = "high"
 
-        data["model"] = self.none_model
+        # Select target model based on reasoning strength
+        target_model = self.none_model
         if reasoning_strength != "none":
-            data["model"] = self.low_model
+            target_model = self.low_model
             if reasoning_strength == "medium":
-                data["model"] = self.medium_model
+                target_model = self.medium_model
             elif reasoning_strength == "high":
-                data["model"] = self.high_model
+                target_model = self.high_model
 
+        # Validate that target model is different from source to avoid infinite loops
+        if target_model == data["model"]:
+            self.logger.warning(
+                f"Target model {target_model} is same as source model, skipping routing"
+            )
+            return data
+
+        # Log the routing decision
+        self.logger.info(
+            f"Routing from {data['model']} to {target_model} "
+            f"(reasoning_strength: {reasoning_strength}, "
+        )
+
+        data["model"] = target_model
         return data
 
     async def async_post_call_failure_hook(
