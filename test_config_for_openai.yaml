@@ -9,10 +9,9 @@ model_list:
   # Route to simple/fast models when no reasoning is needed
   - model_name: none-reasoning
     litellm_params:
-      model: openai/gpt-4.1
+      model: openai/o4-mini
       api_key: "os.environ/OPENAI_API_KEY"
       reasoning_effort: low
-      parallel_tool_calls: false
 
   # Route to models with basic reasoning capabilities
   - model_name: low-reasoning
