@@ -10,7 +10,7 @@ model_list:
   - model_name: none-reasoning
     litellm_params:
       model: openai/gpt-4.1
-      api_key: "os.environ/CERABRAS_API_KEY"
+      api_key: "os.environ/OPENAI_API_KEY"
       reasoning_effort: low
       parallel_tool_calls: false
 
@@ -18,21 +18,21 @@ model_list:
   - model_name: low-reasoning
     litellm_params:
       model: openai/o4-mini
-      api_key: "os.environ/CERABRAS_API_KEY"
+      api_key: "os.environ/OPENAI_API_KEY"
       reasoning_effort: medium
 
   # Route to models with enhanced reasoning for complex tasks
   - model_name: medium-reasoning
     litellm_params:
       model: openai/o4-mini
-      api_key: "os.environ/CERABRAS_API_KEY"
+      api_key: "os.environ/OPENAI_API_KEY"
       reasoning_effort: high
 
   # Route to models with maximum reasoning for highly complex tasks
   - model_name: high-reasoning
     litellm_params:
       model: openai/o3
-      api_key: "os.environ/CERABRAS_API_KEY"
+      api_key: "os.environ/OPENAI_API_KEY"
       reasoning_effort: high
 
 # LiteLLM proxy settings
